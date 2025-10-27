@@ -1,15 +1,15 @@
 use clap::Parser;
 
-/// Configuration derived from command-line arguments for the Rust Loop Runner (RLR).
+/// Configuration derived from command-line arguments
 #[derive(Parser, Debug)]
 #[clap(
     author,
     version,
-    about = "Rust Loop Runner (RLR): Repeats a command until a condition is met."
+    about = "Repeat: Repeats a command until a condition is met."
 )]
 pub struct CliConfig {
     /// The command and its arguments to execute repeatedly.
-    /// Example: rlr --exit-code 127 echo "Running..."
+    /// Example: repeat --exit-code 127 echo "Running..."
     #[clap(required = true, trailing_var_arg = true, value_name = "COMMAND")]
     pub command: Vec<String>,
 

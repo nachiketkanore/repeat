@@ -73,7 +73,7 @@ impl AnalysisTracker {
             0.0
         };
 
-        println!("\n--- RLR Execution Analysis ---");
+        println!("\n--- Execution Analysis ---");
         println!("Total Run Time:   {:.3}s", elapsed.as_secs_f64());
         println!("Total Executions: {}", self.total_runs);
         println!("Completed Runs:   {}", self.total_runs - self.timeout_runs);
