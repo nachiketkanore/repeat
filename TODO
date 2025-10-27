@@ -1,0 +1,35 @@
+total timeout
+fixed delay
+delay between execution
+random delay between execution
+initial delay
+schedule later (run in background)
+backoff 
+stdin for commands
+input stream for commands
+parallel execution
+exact match output
+pipe output to next command
+diff mode
+match regex
+take input from file
+log output to file
+timestamp
+success threshold
+failure threshold
+once successful
+once failed
+quiet mode
+structured output - json/xml/yaml
+with environment variables
+persistence while re-execution
+serialize execution state
+configuration from file (json config for repeat cli)
+make library that can be execution from app
+max cpu for each command
+max memory usage for each command
+containerization of commands
+isolated code execution
+TUI dashboard
+pre-run and post-run hooks
+
