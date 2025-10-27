@@ -1,5 +1,6 @@
-Repeat: Repeats a command until a condition is met.
+### Repeat: Repeats a command until a condition is met.
 
+```
 Usage: repeat [OPTIONS] <COMMAND>...
 
 Arguments:
@@ -12,3 +13,4 @@ Options:
   -i, --iterations <ITERATIONS>  Number of iterations for a given command [default: 10]
   -h, --help                     Print help
   -V, --version                  Print version
+```
