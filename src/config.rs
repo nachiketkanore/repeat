@@ -37,6 +37,16 @@ pub struct CliConfig {
     #[clap(short, long)]
     #[arg(long, default_value_t = 10)]
     pub iterations: u64,
+
+    /// Initial delay before starting command execution
+    #[clap(long, value_name = "SECS")]
+    #[arg(long, default_value_t = 0)]
+    pub initial_delay: u64,
+
+    /// Delay in between command execution
+    #[clap(long, value_name = "SECS")]
+    #[arg(long, default_value_t = 0)]
+    pub in_between_delay: u64,
 }
 
 impl CliConfig {
@@ -61,6 +71,7 @@ mod tests {
             total_run_timeout_sec: 10,
             verbose: false,
             iterations: 1,
+            ..Default::default()
         }
     }
 

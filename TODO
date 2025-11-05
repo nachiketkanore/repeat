@@ -1,8 +1,8 @@
 total timeout - done
-fixed initial delay
-delay between execution
+fixed initial delay - done
+delay between execution - done
 random delay between execution
-initial delay
+take delay value in range (take random in that range)
 schedule later (run in background)
 backoff 
 stdin for commands

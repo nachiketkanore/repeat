@@ -3,6 +3,7 @@ use clap::Parser;
 use std::pin::Pin;
 use std::time::Duration;
 use tokio::select;
+use tokio::time::sleep;
 
 mod analyzer;
 mod config;
@@ -38,7 +39,9 @@ async fn run_execution_loop(config: &CliConfig, runner: Runner<'_>) {
     let ctrl_c_signal = tokio::signal::ctrl_c();
     tokio::pin!(ctrl_c_signal);
 
-    for _iteration in 0..config.iterations {
+    sleep(Duration::from_secs(config.initial_delay)).await;
+
+    for itr in 1..=config.iterations {
         select! {
             _ = &mut ctrl_c_signal => {
                 eprintln!("\nCtrl+C signal received. Preparing for graceful shutdown...");
@@ -61,6 +64,10 @@ async fn run_execution_loop(config: &CliConfig, runner: Runner<'_>) {
                     }
                 }
             }
+        }
+
+        if itr != config.iterations {
+            sleep(Duration::from_secs(config.in_between_delay)).await;
         }
     }
 }

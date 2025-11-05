@@ -98,6 +98,7 @@ mod tests {
             total_run_timeout_sec: 100, // Irrelevant for unit tests
             verbose,
             iterations: 1, // Irrelevant for unit tests
+            ..Default::default()
         }
     }
 
