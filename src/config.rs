@@ -7,6 +7,7 @@ use clap::Parser;
     version,
     about = "Repeat: Repeats a command until a condition is met."
 )]
+#[derive(Default)]
 pub struct CliConfig {
     /// The command and its arguments to execute repeatedly.
     /// Example: repeat --exit-code 127 echo "Running..."
