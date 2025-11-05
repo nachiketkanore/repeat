@@ -1,65 +1,49 @@
-use std::time::Duration;
 use anyhow::{Context, Result};
 use clap::Parser;
+use std::pin::Pin;
+use std::time::Duration;
 use tokio::select;
 use tokio::time::timeout;
 
 mod analyzer;
 mod config;
+mod execution;
 mod runner;
 
+use crate::execution::{Execution, TimedExecution};
 use analyzer::AnalysisTracker;
 use config::CliConfig;
 use runner::Runner;
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    // 1. Setup and Argument Parsing
     let config = CliConfig::parse();
-    let runner = Runner::new(&config);
-    let mut tracker = AnalysisTracker::new();
-
-    // run this only until config.total_run_timeout_sec is passed
-    let global_timeout = Duration::from_secs(config.total_run_timeout_sec);
-    let result = timeout(global_timeout, run_execution_loop(&config, runner, &mut tracker)).await;
-    
-    match result {
-        Ok(()) => {
-            println!("Execution loop finished normally before the timeout.");
-        }
-        Err(_elapsed) => {
-            println!(
-                "Global timeout of {} seconds reached – stopping the loop.",
-                config.total_run_timeout_sec
-            );
-            // TODO: perform any clean-up here (e.g. signal the runner to stop)
-        }
-    }
-
     if config.verbose {
-        // print input information
         println!("arguments: {:#?}", config);
     }
 
-    // TODO: design patterns -> execution hooks trait
-    // for any custom condition that needs to be fulfilled
+    let global_timeout = Duration::from_secs(config.total_run_timeout_sec);
 
+    let execution_fn = move || -> Pin<Box<dyn Future<Output = Result<()>> + Send>> {
+        Box::pin(async move { Ok(run_execution_loop(&config, Runner::new(&config)).await) })
+    };
 
-    // 3. Main Infinite Loop
+    let timed_executor = TimedExecution {
+        timeout: global_timeout,
+        executor: execution_fn, // Pass the closure
+    };
 
-    // 5. Post-Run Analysis
-    tracker.report();
+    let _ = timed_executor.execute().await;
 
     Ok(())
 }
 
-async fn run_execution_loop(config: &CliConfig, runner: Runner<'_>, tracker: &mut AnalysisTracker) {
-
+async fn run_execution_loop(config: &CliConfig, runner: Runner<'_>) {
     // 2. Global Signal Handling for Graceful Exit (Essential for stability)
     let ctrl_c_signal = tokio::signal::ctrl_c();
     tokio::pin!(ctrl_c_signal);
 
-    for iteration in  0..config.iterations {
+    for _iteration in 0..config.iterations {
         // Use tokio::select! to watch for both command execution and Ctrl+C signal concurrently.
         select! {
             // Check for Ctrl+C signal
@@ -78,9 +62,6 @@ async fn run_execution_loop(config: &CliConfig, runner: Runner<'_>, tracker: &mu
                         break;
                     }
                 };
-
-                // Record the run and print verbose output if enabled
-                tracker.record(&record);
 
                 // 4. Exit Control Check
                 if let Some(exit_code) = config.exit_code {

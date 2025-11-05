@@ -103,8 +103,6 @@ impl AnalysisTracker {
     }
 }
 
-
-
 #[cfg(test)]
 mod tests {
     use super::*;

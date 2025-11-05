@@ -1,6 +1,6 @@
-use crate::config::CliConfig;
 use crate::analyzer::{RunRecord, RunStatus};
-use anyhow::{Result, Context, bail};
+use crate::config::CliConfig;
+use anyhow::{Context, Result, bail};
 use std::process::Stdio;
 use std::time::Duration;
 use tokio::time::timeout;
@@ -33,12 +33,14 @@ impl<'a> Runner<'a> {
 
         // 2. Spawn the process
         // We use 'let mut' so we can call child.kill() later if needed.
-        let mut child = command.spawn()
+        let mut child = command
+            .spawn()
             .with_context(|| format!("Failed to spawn command: {}", exec))?;
 
         let output = {
             let secs = self.config.single_run_timeout_sec;
             let limit = Duration::from_secs(secs);
+
             // 3. Apply timeout logic
             // Use child.wait() which takes &mut self, preventing the move that caused the E0382 error.
             match timeout(limit, child.wait()).await {
@@ -46,11 +48,11 @@ impl<'a> Runner<'a> {
                     // Process completed normally. Now safely call wait_with_output
                     // to collect the buffers and consume the child handle. This call is instantaneous.
                     child.wait_with_output().await?
-                },
+                }
                 Ok(Err(e)) => {
                     eprintln!("error occurred: {:#?}", e);
                     bail!("Error waiting for child status: {}", e)
-                },
+                }
                 Err(e) => {
                     // Timeout occurred: 'child' is available because child.wait() only borrowed it.
                     // Attempt to kill the child process
@@ -76,12 +78,22 @@ impl<'a> Runner<'a> {
         let stderr = String::from_utf8_lossy(&output.stderr).to_string();
 
         if self.config.verbose {
-            println!("<= Run finished. Code: {:?}, Duration: {:.3}ms", exit_code, duration.as_secs_f64() * 1000.0);
+            println!(
+                "<= Run finished. Code: {:?}, Duration: {:.3}ms",
+                exit_code,
+                duration.as_secs_f64() * 1000.0
+            );
             if !stdout.is_empty() {
-                println!("   --- STDOUT ---\n{}\n   --- END STDOUT ---", stdout.trim());
+                println!(
+                    "   --- STDOUT ---\n{}\n   --- END STDOUT ---",
+                    stdout.trim()
+                );
             }
             if !stderr.is_empty() {
-                println!("   --- STDERR ---\n{}\n   --- END STDERR ---", stderr.trim());
+                println!(
+                    "   --- STDERR ---\n{}\n   --- END STDERR ---",
+                    stderr.trim()
+                );
             }
         }
 
@@ -95,11 +107,11 @@ impl<'a> Runner<'a> {
     }
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::config::CliConfig; // Need to import CliConfig for testing
+    use crate::config::CliConfig;
+    // Need to import CliConfig for testing
 
     // Helper to create a mock CliConfig
     fn mock_config(command: Vec<&str>, single_run_timeout_sec: u64, verbose: bool) -> CliConfig {
@@ -153,7 +165,11 @@ mod tests {
 
         assert_eq!(record.status, RunStatus::Timeout);
         assert_eq!(record.exit_code, None);
-        assert!(record.stderr.contains("Process timed out after 1s and was killed."));
+        assert!(
+            record
+                .stderr
+                .contains("Process timed out after 1s and was killed.")
+        );
         // Duration should be slightly greater than the timeout limit (1 second)
         assert!(record.duration >= Duration::from_secs(1));
         assert!(record.duration < Duration::from_secs(2));

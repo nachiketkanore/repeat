@@ -90,4 +90,3 @@ mod tests {
         assert_eq!(args, vec!["script.py"]);
     }
 }
-
