@@ -1,7 +1,7 @@
-use crate::analyzer::{RunRecord, RunStatus};
+use crate::analyzer::{AnalysisTracker, RunRecord, RunStatus};
 use crate::config::CliConfig;
-use crate::execution::{Execution, ExecutionResult, TimedExecution};
-use anyhow::{Context, Result, bail};
+use crate::execution::{Execution, TimedCommandExecution};
+use anyhow::{Context, Result};
 use std::process::Stdio;
 use std::time::Duration;
 
@@ -14,13 +14,9 @@ impl<'a> Runner<'a> {
         Runner { config }
     }
 
-    pub async fn execute_command(&self) -> Result<RunRecord> {
+    pub async fn execute_command(&self, tracker: &mut AnalysisTracker) -> Result<RunRecord> {
         let (exec, args) = self.config.executable_and_args();
         let start_time = std::time::Instant::now();
-
-        if self.config.verbose {
-            eprintln!("\n=> Starting run: {} {}", exec, args.join(" "));
-        }
 
         let mut command = tokio::process::Command::new(exec);
         command
@@ -32,52 +28,22 @@ impl<'a> Runner<'a> {
             .spawn()
             .with_context(|| format!("Failed to spawn command: {}", exec))?;
 
-        let output = {
-            let secs = self.config.single_run_timeout_sec;
-            let limit = Duration::from_secs(secs);
+        let secs = self.config.single_run_timeout_sec;
+        let limit = Duration::from_secs(secs);
 
-            let result = TimedExecution {
-                timeout: limit,
-                executor: child.wait(),
-            };
-
-            match result.execute().await {
-                ExecutionResult::Success => child.wait_with_output().await?,
-                ExecutionResult::Failure => {
-                    bail!("Error waiting for child status")
-                }
-                ExecutionResult::Timeout => {
-                    let _ = child.kill().await;
-                    return Ok(RunRecord {
-                        status: RunStatus::Timeout,
-                        exit_code: None,
-                        duration: start_time.elapsed(),
-                        stdout: String::new(),
-                        stderr: format!("Process timed out after {}s and was killed.", secs),
-                    });
-                }
-            }
+        let result = TimedCommandExecution {
+            command,
+            timeout: limit,
         };
 
-        // Output and duration calculation are now outside the conditional logic
-        let duration = start_time.elapsed();
-        let exit_code = output.status.code();
-
-        let stdout = String::from_utf8_lossy(&output.stdout).to_string();
-        let stderr = String::from_utf8_lossy(&output.stderr).to_string();
-
-        let run_record = RunRecord {
-            status: RunStatus::Completed,
-            exit_code,
-            duration,
-            stdout,
-            stderr,
-        };
+        let run_record = result.execute().await;
 
         if self.config.verbose {
-            println!("{:#?}", output);
-            println!("{:#?}", run_record);
+            // TODO: decide on this
+            // utils::print_struct_as_json(&run_record);
         }
+
+        tracker.record(&run_record);
 
         Ok(run_record)
     }
@@ -106,7 +72,8 @@ mod tests {
     async fn execute_command_success() -> Result<()> {
         let config = mock_config(vec!["echo", "TEST_SUCCESS"], 1, false);
         let runner = Runner::new(&config);
-        let record = runner.execute_command().await?;
+        let mut tracker = AnalysisTracker::new(false);
+        let record = runner.execute_command(&mut tracker).await?;
 
         assert_eq!(record.status, RunStatus::Completed);
         assert_eq!(record.exit_code, Some(0));
@@ -122,7 +89,8 @@ mod tests {
         // Use a shell command to explicitly control the exit code
         let config = mock_config(vec!["sh", "-c", "echo 'failed' >&2; exit 123"], 1, false);
         let runner = Runner::new(&config);
-        let record = runner.execute_command().await?;
+        let mut tracker = AnalysisTracker::new(false);
+        let record = runner.execute_command(&mut tracker).await?;
 
         assert_eq!(record.status, RunStatus::Completed);
         assert_eq!(record.exit_code, Some(123));
@@ -138,15 +106,12 @@ mod tests {
         // Note: The `sleep` command is generally available on POSIX systems.
         let config = mock_config(vec!["sleep", "2"], 1, true);
         let runner = Runner::new(&config);
-        let record = runner.execute_command().await?;
+        let mut tracker = AnalysisTracker::new(false);
+        let record = runner.execute_command(&mut tracker).await?;
 
         assert_eq!(record.status, RunStatus::Timeout);
         assert_eq!(record.exit_code, None);
-        assert!(
-            record
-                .stderr
-                .contains("Process timed out after 1s and was killed.")
-        );
+        assert!(record.stderr.contains("Process terminated due to timeout."));
         // Duration should be slightly greater than the timeout limit (1 second)
         assert!(record.duration >= Duration::from_secs(1));
         assert!(record.duration < Duration::from_secs(2));

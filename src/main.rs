@@ -3,38 +3,46 @@ use clap::Parser;
 use std::pin::Pin;
 use std::time::Duration;
 use tokio::select;
-use tokio::time::sleep;
+use tokio::time::{Instant, sleep};
 
 mod analyzer;
 mod config;
 mod execution;
 mod runner;
+mod utils;
 
-use crate::execution::{Execution, TimedExecution};
+use crate::analyzer::AnalysisTracker;
+use crate::execution::{Execution, TimedCommandExecution, TimedFunctionExecution};
 use config::CliConfig;
 use runner::Runner;
 
 #[tokio::main]
 async fn main() -> Result<()> {
     let config = CliConfig::parse();
+    let mut tracker = AnalysisTracker::new(config.verbose);
     if config.verbose {
-        println!("arguments: {:#?}", config);
+        // TODO: decide on this
+        // println!("arguments: {:#?}", config);
     }
 
     let global_timeout = Duration::from_secs(config.total_run_timeout_sec);
     let runner = Runner::new(&config);
 
-    TimedExecution {
+    let start_instant = Instant::now();
+
+    let _result = TimedFunctionExecution {
         timeout: global_timeout,
-        executor: run_execution_loop(&config, runner),
+        executor: run_execution_loop(&config, runner, &mut tracker),
     }
     .execute()
     .await;
 
+    tracker.report(start_instant);
+
     Ok(())
 }
 
-async fn run_execution_loop(config: &CliConfig, runner: Runner<'_>) {
+async fn run_execution_loop(config: &CliConfig, runner: Runner<'_>, tracker: &mut AnalysisTracker) {
     // 2. Global Signal Handling for Graceful Exit (Essential for stability)
     let ctrl_c_signal = tokio::signal::ctrl_c();
     tokio::pin!(ctrl_c_signal);
@@ -48,7 +56,7 @@ async fn run_execution_loop(config: &CliConfig, runner: Runner<'_>) {
                 break;
             }
 
-            run_result = runner.execute_command() => {
+            run_result = runner.execute_command(tracker) => {
                 let record = match run_result {
                     Ok(r) => r,
                     Err(e) => {
