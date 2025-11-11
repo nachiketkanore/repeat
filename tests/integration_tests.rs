@@ -1,41 +1,13 @@
 use std::path::{Path, PathBuf};
 use std::process::Command;
-use std::sync::Once;
 use std::time::Duration;
 // Use std::time::Duration for consistency
 
 use repeat::AnalysisTracker;
-use serde::{Deserialize, Serialize};
 use serde_json;
-
-// Ensure the binary is built in release mode only once per test run.
-static BUILD_ONCE: Once = Once::new();
 
 /// Finds the path to the compiled 'repeat' executable, building it in release mode if necessary.
 fn get_binary_path() -> PathBuf {
-    // TODO: make this fast (runs too slow)
-    // TODO: this will run only in github workflows
-    // TODO: maybe this can be skipped if cargo build is done in previous step
-    // BUILD_ONCE.call_once(|| {
-    //     eprintln!("Building 'repeat' in release mode for integration tests...");
-    //     let build_output = Command::new("cargo")
-    //         .args(&["build", "--release"])
-    //         .output()
-    //         .expect("Failed to execute cargo build");
-
-    //     if !build_output.status.success() {
-    //         panic!(
-    //             "Failed to build 'repeat' in release mode:\nstdout: {}\nstderr: {}",
-    //             String::from_utf8_lossy(&build_output.stdout),
-    //             String::from_utf8_lossy(&build_output.stderr)
-    //         );
-    //     }
-    //     eprintln!("Build complete.");
-    // });
-
-    // The binary is located at target/release/repeat relative to the project root.
-    // This is the standard location for a release build from the project root.
-    // TODO: clean up the above code if it works in the github workflow step
     Path::new("target/release/repeat").to_path_buf()
 }
 
