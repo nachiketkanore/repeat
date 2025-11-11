@@ -47,7 +47,7 @@ async fn run_execution_loop(config: &CliConfig, runner: Runner<'_>, tracker: &mu
     let ctrl_c_signal = tokio::signal::ctrl_c();
     tokio::pin!(ctrl_c_signal);
 
-    sleep(Duration::from_secs(config.initial_delay)).await;
+    sleep(Duration::from_secs(config.initial_delay.get_value())).await;
 
     for itr in 1..=config.iterations {
         select! {
@@ -75,7 +75,7 @@ async fn run_execution_loop(config: &CliConfig, runner: Runner<'_>, tracker: &mu
         }
 
         if itr != config.iterations {
-            sleep(Duration::from_secs(config.in_between_delay)).await;
+            sleep(Duration::from_secs(config.in_between_delay.get_value())).await;
         }
     }
 }
