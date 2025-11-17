@@ -1,10 +1,10 @@
 total timeout - done
 fixed initial delay - done
 delay between execution - done
-random delay between execution
-take delay value in range (take random in that range)
-schedule later (run in background)
-backoff 
+random delay between execution - done
+take delay value in range (take random in that range) - done
+schedule later (run in background) - *done (same as initial delay)
+backoff - what's this?
 stdin for commands
 input stream for commands
 parallel execution
@@ -33,3 +33,10 @@ isolated code execution
 TUI dashboard
 pre-run and post-run hooks
 
+Testing and validations:
+- Fuzz testing
+- 100% code coverage pipeline stage
+- Exhaustive integration tests for all features
+- Performance testing
+- Cargo clippy analysis
+- No unwraps
