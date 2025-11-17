@@ -40,3 +40,6 @@ Testing and validations:
 - Performance testing
 - Cargo clippy analysis
 - No unwraps
+
+Post basic app completion:
+- Release to distributions (cargo, brew, apt, etc) through github pipelines
