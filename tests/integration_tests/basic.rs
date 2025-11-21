@@ -29,16 +29,14 @@ fn test_specific_iteration_count() {
 
 #[test]
 fn random_number_exit_code() {
-    // The issue: the shell substitutes '$RANDOM' *before* the first execution, so it's the same
-    // random number for all 10 runs when using the 'args' approach.
-    // To fix this, you must run a script/command that generates a random number *inside* the loop.
-    // For a simple integration test, this is difficult without creating a temporary script file.
-    // However, we can assert that the exit codes are *not all 0* and that the total run count is correct.
+    // We use /bin/bash because /bin/sh (often dash) does not support $RANDOM.
+    // We want to ensure that the command is re-evaluated for each iteration,
+    // producing different exit codes.
 
     let args = &[
         "--iterations",
         "10",
-        "/bin/sh",
+        "/bin/bash",
         "-c",
         "exit $(( (RANDOM % 5) + 1 ))", // Generates a random exit code between 1 and 5
     ];
@@ -65,11 +63,18 @@ fn random_number_exit_code() {
     // This is a probabilistic check, but a good sign the randomization is working.
     // It's highly unlikely (1/5^10 chance) that all 10 runs will have the same exit code between 1 and 5.
     // We check if there's more than one distinct exit code.
-    // assert!(tracker.exit_code_counts.len() > 1, "Expected multiple distinct exit codes for random test. Got {:?}", tracker.exit_code_counts.keys());
-    // TODO: fix this
-    //
-    // // Check that all exit codes are within the expected range [1, 5]
-    // for code in tracker.exit_code_counts.keys() {
-    //     assert!(*code >= 1 && *code <= 5, "Random exit code out of range [1, 5]: {}", code);
-    // }
+    assert!(
+        tracker.exit_code_counts.len() > 1,
+        "Expected multiple distinct exit codes for random test. Got {:?}",
+        tracker.exit_code_counts.keys()
+    );
+
+    // Check that all exit codes are within the expected range [1, 5]
+    for code in tracker.exit_code_counts.keys() {
+        assert!(
+            *code >= 1 && *code <= 5,
+            "Random exit code out of range [1, 5]: {}",
+            code
+        );
+    }
 }
