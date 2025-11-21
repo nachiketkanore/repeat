@@ -111,6 +111,11 @@ pub struct CliConfig {
     /// Delay in between command execution
     #[clap(long, value_name = "TEXT")]
     pub match_output: Option<String>,
+
+    /// Environment variables to pass to the command (can be specified multiple times)
+    /// Format: KEY=VALUE
+    #[clap(long = "env", value_name = "KEY=VALUE")]
+    pub env: Vec<String>,
 }
 
 impl CliConfig {

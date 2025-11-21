@@ -22,6 +22,18 @@ impl<'a> Runner<'a> {
             .stdout(Stdio::piped()) // Capture stdout
             .stderr(Stdio::piped()); // Capture stderr
 
+        // Apply custom environment variables
+        for env_var in &self.config.env {
+            if let Some((key, value)) = env_var.split_once('=') {
+                command.env(key, value);
+            } else {
+                eprintln!(
+                    "Warning: Invalid environment variable format '{}'. Expected KEY=VALUE",
+                    env_var
+                );
+            }
+        }
+
         let secs = self.config.single_run_timeout_sec;
         let limit = Duration::from_secs(secs);
 
@@ -118,4 +130,67 @@ mod tests {
     // is tricky to reliably simulate cross-platform without custom setup.
     // The current logic in execute_command handles it by setting status to Killed
     // if exit_code is None after the process completes (not times out).
+
+    #[tokio::test]
+    async fn test_execute_command_with_env_vars() -> Result<()> {
+        // Test that environment variables are properly set and accessible
+        let mut config = mock_config(vec!["sh", "-c", "echo $TEST_VAR"], 1, false);
+        config.env = vec!["TEST_VAR=hello_world".to_string()];
+
+        let runner = Runner::new(&config);
+        let mut tracker = AnalysisTracker::new(false);
+        let record = runner.execute_command(&mut tracker).await?;
+
+        assert_eq!(record.status, RunStatus::Completed);
+        assert_eq!(record.exit_code, Some(0));
+        assert_eq!(record.stdout.trim(), "hello_world");
+        assert!(record.stderr.is_empty());
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_execute_command_with_multiple_env_vars() -> Result<()> {
+        // Test that multiple environment variables are properly set
+        let mut config = mock_config(vec!["sh", "-c", "echo $VAR1 $VAR2 $VAR3"], 1, false);
+        config.env = vec![
+            "VAR1=first".to_string(),
+            "VAR2=second".to_string(),
+            "VAR3=third".to_string(),
+        ];
+
+        let runner = Runner::new(&config);
+        let mut tracker = AnalysisTracker::new(false);
+        let record = runner.execute_command(&mut tracker).await?;
+
+        assert_eq!(record.status, RunStatus::Completed);
+        assert_eq!(record.exit_code, Some(0));
+        assert_eq!(record.stdout.trim(), "first second third");
+        assert!(record.stderr.is_empty());
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_execute_command_with_invalid_env_var_format() -> Result<()> {
+        // Test that invalid environment variable format is handled gracefully
+        // The command should still execute, but the invalid env var should be skipped
+        let mut config = mock_config(vec!["sh", "-c", "echo $VALID_VAR"], 1, false);
+        config.env = vec![
+            "VALID_VAR=works".to_string(),
+            "INVALID_NO_EQUALS".to_string(), // This should trigger a warning
+        ];
+
+        let runner = Runner::new(&config);
+        let mut tracker = AnalysisTracker::new(false);
+        let record = runner.execute_command(&mut tracker).await?;
+
+        // The command should still succeed with the valid env var
+        assert_eq!(record.status, RunStatus::Completed);
+        assert_eq!(record.exit_code, Some(0));
+        assert_eq!(record.stdout.trim(), "works");
+        assert!(record.stderr.is_empty());
+
+        Ok(())
+    }
 }

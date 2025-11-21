@@ -127,3 +127,80 @@ pub fn assert_analysis_metrics(
         );
     }
 }
+
+/// Helper function to run a command and capture its stdout by writing to a temporary file.
+/// This is useful for verifying that environment variables or other data are present in the output.
+///
+/// # Arguments
+/// * `args` - Arguments to pass to the repeat binary (excluding the command itself)
+/// * `command` - The shell command to execute
+///
+/// # Returns
+/// The contents of the stdout captured in the temporary file
+pub fn run_and_capture_stdout(args: &[&str], command: &str) -> String {
+    use rand;
+    use std::fs;
+    use std::path::PathBuf;
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    // Create a unique temporary file path using timestamp and random number
+    let timestamp = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap()
+        .as_nanos();
+    let random: u32 = rand::random();
+    let temp_file = PathBuf::from(format!(
+        "/tmp/repeat_test_output_{}_{}.txt",
+        timestamp, random
+    ));
+
+    // Clean up any existing file
+    let _ = fs::remove_file(&temp_file);
+
+    let temp_file_str = temp_file.to_str().unwrap();
+    let full_command = format!("{} > {}", command, temp_file_str);
+
+    // Build the full args array with the command
+    let mut full_args = args.to_vec();
+    full_args.push("sh");
+    full_args.push("-c");
+    full_args.push(&full_command);
+
+    // Run the command
+    let tracker = run_and_parse_json(&full_args);
+
+    // Verify the command succeeded
+    assert_eq!(tracker.timeout_runs, 0, "Command should not timeout");
+    let exit_code_0_count = tracker.exit_code_counts.get(&0).unwrap_or(&0);
+    assert!(
+        *exit_code_0_count > 0,
+        "Command should have at least one successful run"
+    );
+
+    // Read and return the output
+    let output = fs::read_to_string(&temp_file).expect("Failed to read output file");
+
+    // Clean up
+    let _ = fs::remove_file(&temp_file);
+
+    output
+}
+
+/// Helper function to assert that stdout contains expected strings.
+
+/// # Arguments
+/// * `args` - Arguments to pass to the repeat binary (excluding the command itself)
+/// * `command` - The shell command to execute
+/// * `expected_strings` - Strings that should be present in the stdout
+pub fn assert_stdout_contains(args: &[&str], command: &str, expected_strings: &[&str]) {
+    let output = run_and_capture_stdout(args, command);
+
+    for expected in expected_strings {
+        assert!(
+            output.contains(expected),
+            "Output should contain '{}', but got: {}",
+            expected,
+            output
+        );
+    }
+}
