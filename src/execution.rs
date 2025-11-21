@@ -29,7 +29,7 @@ where
 {
     async fn execute(self) -> Result<(), Elapsed> {
         match timeout(self.timeout, self.executor).await {
-            Ok(s) => Ok(()),
+            Ok(_) => Ok(()),
             Err(e) => Err(e),
         }
     }
@@ -45,7 +45,7 @@ impl Execution<RunRecord> for TimedCommandExecution {
         let start_time = tokio::time::Instant::now();
 
         // 1. Spawn the command
-        let mut child = match self
+        let child = match self
             .command
             .stdout(std::process::Stdio::piped())
             .stderr(std::process::Stdio::piped())
@@ -110,5 +110,28 @@ impl Execution<RunRecord> for TimedCommandExecution {
         };
 
         result
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::time::Duration;
+    use tokio::process::Command;
+
+    #[tokio::test]
+    async fn test_command_execution_output_match_success() {
+        let mut command = Command::new("echo");
+        command.arg("hello");
+
+        let execution = TimedCommandExecution {
+            timeout: Duration::from_secs(1),
+            command,
+        };
+
+        let record = execution.execute().await;
+        assert_eq!(record.status, RunStatus::Completed);
+        assert_eq!(record.exit_code, Some(0));
+        assert_eq!(record.stdout, "hello\n");
     }
 }

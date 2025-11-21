@@ -107,6 +107,10 @@ pub struct CliConfig {
     // TODO: add tests for this new range based param
     // Currently, due to backward compatibilty properly configured the existing tests will pass
     pub in_between_delay: DelayValue,
+
+    /// Delay in between command execution
+    #[clap(long, value_name = "TEXT")]
+    pub match_output: Option<String>,
 }
 
 impl CliConfig {

@@ -1,6 +1,6 @@
-use anyhow::{Context, Result};
+use anyhow::Result;
 use clap::Parser;
-use std::pin::Pin;
+
 use std::time::Duration;
 use tokio::select;
 use tokio::time::{Instant, sleep};
@@ -12,7 +12,7 @@ mod runner;
 mod utils;
 
 use crate::analyzer::AnalysisTracker;
-use crate::execution::{Execution, TimedCommandExecution, TimedFunctionExecution};
+use crate::execution::{Execution, TimedFunctionExecution};
 use config::CliConfig;
 use runner::Runner;
 
@@ -64,6 +64,13 @@ async fn run_execution_loop(config: &CliConfig, runner: Runner<'_>, tracker: &mu
                         break;
                     }
                 };
+
+                if let Some(ref match_output) = config.match_output {
+                    if record.stdout == *match_output {
+                        eprintln!("\nCommand output matching required output");
+                        break;
+                    }
+                }
 
                 if let Some(exit_code) = config.exit_code {
                     if record.exit_code == Some(exit_code) {
@@ -158,6 +165,13 @@ mod tests {
                                 break;
                             }
                         };
+
+                        if let Some(ref match_output) = config.match_output {
+                            if record.stdout == *match_output {
+                                eprintln!("\nCommand output matching required output (Mocked)");
+                                break;
+                            }
+                        }
 
                         if let Some(exit_code) = config.exit_code {
                             if record.exit_code == Some(exit_code) {
@@ -295,6 +309,60 @@ mod tests {
         assert_eq!(
             calls, 2,
             "The loop should break immediately upon receiving a command execution error."
+        );
+    }
+
+    #[tokio::test]
+    async fn test_run_execution_loop_exits_on_output_match() {
+        let iterations = 10;
+        let match_output = "STOP".to_string();
+        let mut config = create_config(iterations, None);
+        config.match_output = Some(match_output.clone());
+
+        let (tx, rx) = mpsc::channel(iterations as usize);
+
+        // 1. Send two non-matching outputs
+        tx.send(Ok(CommandRecord {
+            exit_code: Some(0),
+            stdout: "RUNNING".to_string(),
+            stderr: String::new(),
+        }))
+        .await
+        .unwrap();
+        tx.send(Ok(CommandRecord {
+            exit_code: Some(0),
+            stdout: "STILL_RUNNING".to_string(),
+            stderr: String::new(),
+        }))
+        .await
+        .unwrap();
+
+        // 2. Send the matching output
+        tx.send(Ok(CommandRecord {
+            exit_code: Some(0),
+            stdout: match_output,
+            stderr: String::new(),
+        }))
+        .await
+        .unwrap();
+
+        // 3. Send one more that should be ignored
+        tx.send(Ok(CommandRecord {
+            exit_code: Some(0),
+            stdout: "AFTER".to_string(),
+            stderr: String::new(),
+        }))
+        .await
+        .unwrap();
+
+        drop(tx);
+
+        let mock_runner = MockRunner::new(rx);
+        let calls = run_mocked_loop(&config, mock_runner).await;
+
+        assert_eq!(
+            calls, 3,
+            "The loop should break after the `match_output` is found."
         );
     }
 }

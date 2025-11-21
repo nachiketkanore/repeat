@@ -1,7 +1,7 @@
-use crate::analyzer::{AnalysisTracker, RunRecord, RunStatus};
+use crate::analyzer::{AnalysisTracker, RunRecord};
 use crate::config::CliConfig;
 use crate::execution::{Execution, TimedCommandExecution};
-use anyhow::{Context, Result};
+use anyhow::Result;
 use std::process::Stdio;
 use std::time::Duration;
 
@@ -16,17 +16,11 @@ impl<'a> Runner<'a> {
 
     pub async fn execute_command(&self, tracker: &mut AnalysisTracker) -> Result<RunRecord> {
         let (exec, args) = self.config.executable_and_args();
-        let start_time = std::time::Instant::now();
-
         let mut command = tokio::process::Command::new(exec);
         command
             .args(args)
             .stdout(Stdio::piped()) // Capture stdout
             .stderr(Stdio::piped()); // Capture stderr
-
-        let mut child = command
-            .spawn()
-            .with_context(|| format!("Failed to spawn command: {}", exec))?;
 
         let secs = self.config.single_run_timeout_sec;
         let limit = Duration::from_secs(secs);
@@ -52,6 +46,7 @@ impl<'a> Runner<'a> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::analyzer::RunStatus;
     use crate::config::CliConfig;
     // Need to import CliConfig for testing
 
