@@ -1,10 +1,9 @@
 // Declare the modules you want to make available internally/externally
-mod analyzer;
-mod config;
-mod execution;
-mod runner;
-mod utils;
+pub mod analyzer;
+pub mod config;
+pub mod execution;
+pub mod runner;
+pub mod utils;
 
-// Export the AnalysisTracker struct and any other items the tests need.
-// Assuming AnalysisTracker is defined in analyzer.rs:
+// Re-export commonly used types for convenience
 pub use analyzer::AnalysisTracker;
